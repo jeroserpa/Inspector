@@ -184,7 +184,7 @@ def listener():
     # run simultaneously.
     rospy.init_node('listener', anonymous=True)
 
-    rospy.Subscriber('/camera/depth/image_rect_raw/compressed', Image, callback,queue_size=1)
+    rospy.Subscriber('/camera/aligned_depth_to_color/image_raw', Image, callback,queue_size=1)
     #rospy.Subscriber('/camera/aligned_depth_to_color/image_raw', Image, callback,queue_size=1)
 
     # spin() simply keeps python from exiting until this node is stopped
