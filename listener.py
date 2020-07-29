@@ -43,6 +43,114 @@ from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 import cv2 as cv, cv2
 import numpy as np
+from matplotlib.pyplot import imshow
+
+def gradient(image):
+    density = 16 #1; 2; 3; 4; 5; 6; 8; 10; 12; 15; 20; 24; 30; 40; 60 COMMON FACTORSS
+    h,w = image.shape
+    (img_sx,img_sy) =  N_sobel(image)
+    
+    image_bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR) 
+   
+    
+    
+    avgs = grad_avg(img_sx,img_sy,density)
+    
+    #image_bgr = draw_grid(image_bgr,density)
+
+    #image_bgr = avg_draw(image_bgr,avgs,100)
+   
+    image_bgr_dir = dir_draw(image_bgr,avgs)
+
+    return image_bgr_dir
+    
+def N_sobel(d_image):
+
+  img_sx = cv2.Sobel(d_image, cv2.CV_32F, 1, 0, ksize=3)
+  img_sy = cv2.Sobel(d_image, cv2.CV_32F, 0, 1, ksize=3)
+
+  img_sx = img_sx/np.max(img_sx)
+  img_sy = img_sy/np.max(img_sy)
+  
+  return(img_sx,img_sy)
+
+
+def grad_avg(img_sx,img_sy,density = 10):
+    h,w = img_sx.shape
+    
+    dy=(int)(h/density)
+    dx=(int)(w/density)
+    i=0
+    x=0
+    y=0
+
+    blocks_sx = np.zeros([dy,dx,density*density])
+    blocks_sy = np.zeros([dy,dx,density*density])
+
+    #store each segment in an array
+    for y in range(0,h,dy):
+        for x in range(0,w,dx):
+
+            # blocks_ang[:,:,i]=angle[y:y+dy,x:x+dx]
+            # blocks_mag[:,:,i]=mag[y:y+dy,x:x+dx]
+            blocks_sx[:,:,i]=img_sx[y:y+dy,x:x+dx]
+            blocks_sy[:,:,i]=img_sy[y:y+dy,x:x+dx]
+            i+=1
+
+    #calculate average
+    avgs = np.zeros([blocks_sx.shape[2],2])  #average x, average y  
+    for i in range(0,avgs.shape[0]):
+        av_x = np.mean(blocks_sx[...,i]) 
+        av_y = np.mean(blocks_sy[...,i])  
+        avgs[i,0] = av_x
+        avgs[i,1] = av_y
+    return(avgs)
+
+def draw_grid(image_bgr,density=10):
+  h,w,c =image_bgr.shape
+  dy=(int)(h/density)
+  dx=(int)(w/density)
+  for y in range(0,h,dy):
+    cv2.line(image_bgr, (0, y), (w, y), (255, 0, 0), 1, 1)
+  for x in range(0,w,dx):
+    cv2.line(image_bgr, (x, 0), (x, h), (255, 0, 0), 1, 1)
+  return(image_bgr)
+
+def avg_draw(image_bgr,avgs,factor=100):
+  h,w,c=image_bgr.shape
+  i=0
+  dy=(int)(h/np.sqrt(avgs.shape[0]))
+  dx=(int)(w/np.sqrt(avgs.shape[0]))
+
+  
+  for y in range((int)(dy/2),h,dy):
+    for x in range((int)(dx/2),w,dx):
+      start = (x ,y)
+      d_x =(int)(avgs[i][0]*factor) #(int)(10*np.cos( means[i]))
+      d_y =(int)(avgs[i][1]*factor) #(int)(10*np.sin( means[i]))
+      end = ( x + d_x , y + d_y)
+    
+     
+      if (np.sqrt((avgs[i][0])**2 +  (avgs[i][1])**2)>0.001) :
+        image_bgr_mean=cv2.arrowedLine(image_bgr,start,end,(0, 0, 255),thickness=2,tipLength = 0.2 )
+      else:
+        cv2.circle(image_bgr, (x,y), 10,  (255,0,0),thickness=2)
+        
+      i+=1
+  return(image_bgr)
+
+def dir_draw(image_bgr,avgs,factor=5000):
+    h,w,c=image_bgr.shape
+    av_X = np.mean(avgs[:,0])*factor  
+    av_Y= np.mean(avgs[:,1])*factor
+    start = ((int)(w/2),(int)(h/2))
+    end = ( (int)(w/2) + (int)(av_X)  , (int)(h/2) + (int)(av_Y)*10)
+    if (np.sqrt(av_X**2+av_Y**2)>0.001*factor):
+        image_bgr_dir = cv2.arrowedLine(image_bgr,start,end,(255, 0, 0),thickness=2,tipLength = 0.2 )
+    else:
+        image_bgr_dir = cv2.circle(image_bgr, start, 30,  (255,0,0),thickness=2)
+    return(image_bgr_dir)
+
 
 n = 0
 def  callback(ros_image):
@@ -58,122 +166,31 @@ def  callback(ros_image):
             depth_image = depth_array/np.max(depth_array)
             center_idx = np.array(depth_array.shape) / 2
 
-            grayscale = np.array(depth_image/np.max(depth_array)*255,dtype = np.uint8)
+            depth_uint8 = np.array(depth_image*255,dtype = np.uint8)
             
             #"better" histogram equalization
             # clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
             # cl1 = clahe.apply(grayscale)
 
-            grayscale_h = cv2.equalizeHist(grayscale.astype(np.uint8))
-            blur = cv.GaussianBlur(grayscale_h,(29,29),0)
-            #denoised =cv.fastNlMeansDenoising(grayscale_h,10,7,21)
-            #gradient(blur)
+            depth_eq = cv2.equalizeHist(depth_uint8)
+            blur_eq = cv.GaussianBlur(depth_eq,(21,21),0)
+            blur = cv.GaussianBlur(depth_image,(9,9),0)
+                        
+            #blur=np.abs(blur-1)
+            dir = gradient(blur)
+            dir_eq = gradient(blur_eq)
             #print(depth_array.shape, np.max(depth_array))
-            cv.imshow('depth',depth_image)
+            cv.imshow('depth',dir)
+            cv.imshow('depth_eq',dir_eq)
             
-            # cv2.namedWindow("gray_h")
-            # cv.imshow('gray_h',blur)
-            
-            # cv2.namedWindow("gray")
-            # cv.imshow('gray',grayscale)
-           
             cv2.waitKey(1)
-            print(np.max(depth_array))
+            
             #print ('center depth:', depth_array[center_idx[0], center_idx[1]])
 
-
-        except CvBridgeError, e:
-            print e
+        except CvBridgeError as e:
+            print (e)
         #Convert the depth image to a Numpy array
-        
     n+=1
-    
-
-
-def gradient(image):
-    h,w = image.shape
-    img_sx = cv2.Sobel(image, cv2.CV_32F, 1, 0, ksize=3)
-    img_sy = cv2.Sobel(image, cv2.CV_32F, 0, 1, ksize=3)
-    image_bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR) 
-    image_bgr_mean = image_bgr.copy()
-    mag, angle = cv2.cartToPolar(img_sx, img_sy, angleInDegrees=False)
-    a_density = 20
-    dy=(int)(h/a_density)
-    dx=(int)(w/a_density)
-    for y in range((int)(dy/2),h,dy):
-        for x in range((int)(dx/2),w,dx):
-            start = (x,y)
-            d_x = (int)(mag[y][x]*np.cos(angle[y][x]))
-            d_y = (int)(mag[y][x]*np.sin(angle[y][x]))
-        #  dx = (int)(20*np.cos(angle[y][x]))
-        #   dy = (int)(20*np.sin(angle[y][x])) 
-            end = ( x + d_x , y + d_y)
-
-
-            image_bgr=cv2.arrowedLine(image_bgr,start,end,(0, 0, 255),thickness=2 ,tipLength = 0.2)
-
-
-    density = 10 #1; 2; 3; 4; 5; 6; 8; 10; 12; 15; 20; 24; 30; 40; 60 COMMON FACTORSS
-    i=0
-    dy=(int)(h/density)
-    dx=(int)(w/density)
-    x=0
-    y=0
-    blocks_ang = np.zeros([dy,dx,density*density])
-    blocks_mag = np.zeros([dy,dx,density*density])
-
-    #store each segment in n array
-    for y in range(0,h,dy):
-        for x in range(0,w,dx):
-
-            blocks_ang[:,:,i]=angle[y:y+dy,x:x+dx]
-            blocks_mag[:,:,i]=mag[y:y+dy,x:x+dx]
-            i+=1
-    #draw grid
-    for y in range(0,h,dy):
-        cv2.line(image_bgr_mean, (0, y), (w, y), (255, 0, 0), 1, 1)
-    for x in range(0,w,dx):
-        cv2.line(image_bgr_mean, (x, 0), (x, h), (255, 0, 0), 1, 1)
-
-
-    means = np.zeros([blocks_ang.shape[2],2])#gx,gy
-    #we calculate the average angle fo the segment
-
-    for i in range(0,means.shape[0]):
-        av_cos = np.mean( np.multiply(blocks_mag[...,i],np.cos(blocks_ang[...,i]))) 
-        av_sin = np.mean( np.multiply(blocks_mag[...,i],np.sin(blocks_ang[...,i])))  
-        means[i,0] = av_cos
-        means[i,1] = av_sin
-        # if means_N[i,0] != 0 :     
-        #   means_N[i,0] = means_N[i,1] / np.max(means_N[i,0])
-        # if means_N[i,1] != 0 :     
-        #   means_N[i,1] = means_N[i,1] / np.max(means_N[i,1])    
-
-        i=0
-        dy=(int)(h/density)
-        dx=(int)(w/density)
-    #we draw de gradients
-    for y in range((int)(dy/2),h,dy):
-        for x in range((int)(dx/2),w,dx):
-            start = (x ,y)
-            d_x =(int)(means[i][0]*2) #(int)(10*np.cos( means[i]))
-            d_y =(int)(means[i][1]*2) #(int)(10*np.sin( means[i]))
-            end = ( x + d_x , y + d_y)
-        
-    
-            if (np.sqrt((means[i][0])**2 +  (means[i][1])**2)>2) :
-                image_bgr_mean=cv2.arrowedLine(image_bgr_mean,start,end,(0, 0, 255),thickness=2,tipLength = 0.2 )
-            else:
-                cv2.circle(image_bgr_mean, (x,y), 10,  (255,0,0),thickness=2)
-            #image_bgr_mean[y][x] = (0,0,255)
-            i+=1
-        
-        
-        cv.imshow('image_bgr',image_bgr_mean)
-        cv2.waitKey(1)
-
-
-
 
 def listener():
     n = 0
@@ -189,8 +206,6 @@ def listener():
 
     # spin() simply keeps python from exiting until this node is stopped
     rospy.spin()
-
-
 
 
 
