@@ -340,7 +340,7 @@ def main():
         #img_bgr_o=gradient(colorized_depth_o)
         colorized_depth = cv.GaussianBlur(colorized_depth,(9,9),0)
         img_bgr_f = gradient(colorized_depth)
-        img_bgr_f = cv.resize(img_bgr_f,(2*img_bgr_f.shape[1], 2*img_bgr_f.shape[0]), interpolation = cv.INTER_CUBIC)
+        img_bgr_f = cv.resize(img_bgr_f,(3*img_bgr_f.shape[1], 3*img_bgr_f.shape[0]), interpolation = cv.INTER_CUBIC)
         cv.imshow('grad',img_bgr_f)
         print("--- %s seconds - Hz-" % (time.time() - start_time),  1/(time.time() - start_time))
         #cv.imshow('grad_o',img_bgr_o)

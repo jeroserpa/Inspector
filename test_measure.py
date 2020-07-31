@@ -106,20 +106,36 @@ def main():
         R_depth = frame_f.as_depth_frame().get_distance((int(300)), (int(100)))
         
         
-        depth_point = rs.rs2_deproject_pixel_to_point(depth_intrin,[300,100], R_depth)#intrinsics, pixel coord (y,x) and depth coord
-        print(depth_intrin)
-        print(depth_point)
+        depth_point = rs.rs2_deproject_pixel_to_point(depth_intrin,[0,0], R_depth)#intrinsics, pixel coord (y,x) and depth coord
+       
         
-        point = rs.rs2_project_point_to_pixel(depth_intrin,depth_point)
-        print(point)
+        portal_center = [0,0,1]
+        portal_topL = [-0.25,-0.1,1]
+        portal_bottomR = [0.25,0.1,1]
+        
+        uvtl = rs.rs2_project_point_to_pixel(depth_intrin,portal_topL)
+        uvbr = rs.rs2_project_point_to_pixel(depth_intrin,portal_bottomR)
+        center = rs.rs2_project_point_to_pixel(depth_intrin,portal_center)
+
+        uvtl = [int(round(x)) for x in uvtl]
+        uvbr = [int(round(x)) for x in uvbr]
+        center = [int(round(x)) for x in center]
+        print(uvtl,center,uvbr)
+        print(uvtl[0])
+        #point = rs.rs2_project_point_to_pixel(depth_intrin,depth_point)
+        
+    
 
         #colorized_depth = cv2.circle(colorized_depth, (300,100), 10,  (255,0,0),thickness=2)   
-        cv.rectangle(img,(384,0),(510,128),(0,255,0),3)
+
+
+        colorized_depth = cv.rectangle(colorized_depth , (uvtl[0],uvtl[1]), (uvbr[0],uvbr[1]), (0,255,0),3)
+        colorized_depth = cv.resize(colorized_depth,(2*colorized_depth.shape[1], 2*colorized_depth.shape[0]), interpolation = cv.INTER_CUBIC)
         cv.imshow("normal",colorized_depth)
         
 
-        ret,binary_1 = cv.threshold(gray_depth,0.25/factor,255,cv.THRESH_BINARY)
-        cv.imshow("binary",binary_1)
+        # ret,binary_1 = cv.threshold(gray_depth,0.25/factor,255,cv.THRESH_BINARY)
+        # cv.imshow("binary",binary_1)
 
         
         cv.waitKey(1)
