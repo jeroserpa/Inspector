@@ -82,15 +82,15 @@ def m_to_px(depth_intrin,size,depth,axe=0):
         end_px = rs.rs2_project_point_to_pixel(depth_intrin,end)
         return (end_px[1]-start_px[1])
 
-def find_free_path(layer,drone_w,drone_h,layer_depth,step=25):
-
+def find_free_path(layer,depth_intrin,drone_w,drone_h,layer_depth,step=25):
+    h,w = layer.shape
     rw= int(m_to_px(depth_intrin,drone_w,layer_depth,0))
     rh= int(m_to_px(depth_intrin,drone_h,layer_depth,1))
     paths = np.zeros([100,2])
     i=0
     for y in range(0,h-rh,step):
         for x in range(0,w-rw,step):
-            sector = thlayerresh[y:y+rh,x:x+rw]
+            sector = layer[y:y+rh,x:x+rw]
             if np.all(sector>10):  
                 layer[y:y+rh,x:x+rw] = 175
                 paths[i,...]=[int(x+rw/2),int(y+rh/2)] 
@@ -116,7 +116,7 @@ def main():
     # Start streaming 
     pipe.start(cfg)
     
-   
+    
     # Store next frameset for later processing:
     while True:
         
@@ -141,7 +141,7 @@ def main():
         
         
         depth_point = rs.rs2_deproject_pixel_to_point(depth_intrin,[0,0], R_depth)#intrinsics, pixel coord (y,x) and depth coord
-       
+        
         
         portal_center = [0,0,1]
         portal_topL = [-0.25,-0.1,1]
@@ -165,7 +165,7 @@ def main():
     
 
         #colorized_depth = cv2.circle(colorized_depth, (300,100), 10,  (255,0,0),thickness=2)   
-              
+        
         ret,thresh = cv.threshold(gray_depth,1/factor,255,cv.THRESH_BINARY)
 
         h,w = thresh.shape
@@ -173,13 +173,15 @@ def main():
         drone_w = 0.50
         drone_h = 0.30
 
-        path_bgr = find_free_path(thresh,drone_w,drone_h,1)
+        path_bgr = find_free_path(thresh,depth_intrin,drone_w,drone_h,1)
+        cv.imshow("thresh1",path_bgr)
+        path_bgr[path_bgr<10]==255
         
-        path_bgr = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
+        # path_bgr = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
 
-        path_bgr = cv.rectangle(path_bgr , (w/2-rw/2,h/2-rh/2), (w/2+rw/2,h/2+rh/2), (0,255,0),3)
-        print((w-rw/2,w-rw/2), (w+rw/2,h+rh/2))
-        print(w,h)
+        # path_bgr = cv.rectangle(path_bgr , (w/2-rw/2,h/2-rh/2), (w/2+rw/2,h/2+rh/2), (0,255,0),3)
+        # print((w-rw/2,w-rw/2), (w+rw/2,h+rh/2))
+        # print(w,h)
 
         colorized_depth = cv.rectangle(colorized_depth , (uvtl[0],uvtl[1]), (uvbr[0],uvbr[1]), (0,255,0),3)
         colorized_depth = cv.resize(colorized_depth,(2*colorized_depth.shape[1], 2*colorized_depth.shape[0]), interpolation = cv.INTER_CUBIC)
