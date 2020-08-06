@@ -163,7 +163,7 @@ def MovAvg(value,grad_buffer): #calculates moving average of given global array
 
 def gradient(image):
     #density = 16 #1; 2; 3; 4; 5; 6; 8; 10; 12; 15; 20; 24; 30; 40; 60 COMMON FACTORSS
-    h,w = image.shape
+    
     img_sx,img_sy =  N_sobel(image)
     
    

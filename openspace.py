@@ -45,8 +45,9 @@ def os_get_filtered(pipe,filters): #gets filtered and original frames from camer
     return frame,frame_original,frameset
 
 
-def get_factor(gray_depth,frame_f,value=200): #returns conversion factor between real depth and grayscale and the value usedto calculate it (you can specify it), by default is 200 because of the noise
-
+def get_factor(gray_depth,frame_f,value=50): #returns conversion factor between real depth and grayscale and the value usedto calculate it (you can specify it), by default is 200 because of the noise
+    #search index of a pixel with value 200
+    h,w = gray_depth.shape
     value_indexes = np.where(gray_depth == value)
     listOfCoordinates= list(zip(value_indexes[0], value_indexes[1]))
     while not listOfCoordinates:
@@ -60,10 +61,25 @@ def get_factor(gray_depth,frame_f,value=200): #returns conversion factor between
     point_depth = frame_f.as_depth_frame().get_distance((int(x_p)), (int(y_p)))
     factor = point_depth/value
 
-    return(factor,value)
+    return(factor)
 
-def factor_error_m(frame_f,factor):
+def get_factor_b(gray_depth,frame_f):
+    h,w = gray_depth.shape
+    step = h/16
+    i=0
+    factor = np.zeros([400])
+    for y in range(0,h,step):
+        for x in range(0,w,step):
+            depth = frame_f.as_depth_frame().get_distance(x,y)
+            value =gray_depth[y,x]
+            factor[i]=value/depth+0.001
+            i+=1
+
+    return np.mean(factor)
     
+
+def factor_error_m(gray_depth,frame_f,factor):
+    h,w = gray_depth.shape
     R_depth = frame_f.as_depth_frame().get_distance((int(w/2)), (int(h/2)))
     E_depth = gray_depth[(int(h/2)), (int(w/2))]*factor
     error = R_depth-E_depth
@@ -100,7 +116,7 @@ def find_free_path(image,depth_intrin,drone_w,drone_h,layer_depth,step=25):
     layer[layer<10] = 255
     layer[layer<200] = 0
     contours, hier = cv2.findContours(np.abs(layer-255), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    return contours,paths
+    return contours,paths,layer
 
 def get_bin_layer(gray_depth,factor,depth):
     ret,thresh = cv.threshold(gray_depth,depth/factor,255,cv.THRESH_BINARY)
@@ -108,7 +124,25 @@ def get_bin_layer(gray_depth,factor,depth):
     thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=10)
     return thresh
 
+def get_rectangle(drone_w = 0.50, drone_h = 0.20, drone_depth = 0.25):
+    global depth_intrin
+    portal_center = [0,0,drone_depth]
+    portal_topL = [-drone_w/2,-drone_h/2,drone_depth]
+    portal_bottomR = [drone_w/2,drone_h/2,drone_depth]
 
+    #find rectangle in pixel dimentions
+    uvtl = rs.rs2_project_point_to_pixel(depth_intrin,portal_topL)
+    uvbr = rs.rs2_project_point_to_pixel(depth_intrin,portal_bottomR)
+    #center = rs.rs2_project_point_to_pixel(depth_intrin,portal_center)
+    
+    #round values
+    uvtl_r = [int(round(x)) for x in uvtl]
+    uvbr_r = [int(round(x)) for x in uvbr]
+    #center = [int(round(x)) for x in center]
+    rectangle = np.zeros([2,2],dtype=int)
+    rectangle[0,:] = uvtl_r
+    rectangle[1,:] = uvbr_r
+    return  rectangle
 
 
 def main():
@@ -116,6 +150,8 @@ def main():
     # Setup:
     pipe = rs.pipeline()
     cfg = rs.config()
+    
+    global depth_intrin
 
     # Start streaming
     cfg.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
@@ -140,66 +176,50 @@ def main():
         
         h,w = gray_depth.shape #240x320
         
+       
+        factor = get_factor(gray_depth,frame_f,50)
 
-        factor,used_val =get_factor(gray_depth,frame_f)
+        
+        #if factor equals zero, we ignore the frame
         if factor != 0 :
-
-            #colorized_depth = cv2.circle(colorized_depth, (x_max,y_max), 10,  (255,0,0),thickness=2)   
             
-            test_point=(300,100)
+            # test_point=(300,100)
             depth_intrin = frame_f.profile.as_video_stream_profile().intrinsics
             
-            R_depth = frame_f.as_depth_frame().get_distance((int(300)), (int(100)))
+            # R_depth = frame_f.as_depth_frame().get_distance((int(300)), (int(100)))
             
             
-            depth_point = rs.rs2_deproject_pixel_to_point(depth_intrin,[0,0], R_depth)#intrinsics, pixel coord (y,x) and depth coord
+            # depth_point = rs.rs2_deproject_pixel_to_point(depth_intrin,[0,0], R_depth)#intrinsics, pixel coord (y,x) and depth coord
             
             
-            portal_center = [0,0,1]
-            portal_topL = [-0.25,-0.1,1]
-            portal_bottomR = [0.25,0.1,1]
-            
-            
-
-
-            uvtl = rs.rs2_project_point_to_pixel(depth_intrin,portal_topL)
-            uvbr = rs.rs2_project_point_to_pixel(depth_intrin,portal_bottomR)
-            center = rs.rs2_project_point_to_pixel(depth_intrin,portal_center)
-            
-            uvtl = [int(round(x)) for x in uvtl]
-            uvbr = [int(round(x)) for x in uvbr]
-            center = [int(round(x)) for x in center]
-            # print(uvtl,center,uvbr)
-            # print(uvtl[0])
-            #point = rs.rs2_project_point_to_pixel(depth_intrin,depth_point)
-            
-
-
             drone_w = 0.50
-            drone_h = 0.30
+            drone_h = 0.20
+            drone_depth = 0.25
+           
+            rectangle = get_rectangle(drone_depth = 0.5)
             
                             
-            thresh1 = get_bin_layer(gray_depth,factor,1)
-            thresh2 = get_bin_layer(gray_depth,factor,2)
-            thresh3 = get_bin_layer(gray_depth,factor,3)
-            thresh4 = get_bin_layer(gray_depth,factor,4)
+            thresh1 = get_bin_layer(gray_depth,factor,0.5)
+            thresh2 = get_bin_layer(gray_depth,factor,0.5)
             
-            contours1,paths1 = find_free_path(thresh1,depth_intrin,drone_w,drone_h,1)
-            contours2,paths2 = find_free_path(thresh2,depth_intrin,drone_w,drone_h,2)
-            contours3,paths3 = find_free_path(thresh3,depth_intrin,drone_w,drone_h,3)
-            contours4,paths4 = find_free_path(thresh4,depth_intrin,drone_w,drone_h,4)
+            colorized_depth[thresh1<10,2] += 50
             
+            contours1,paths1,image_path = find_free_path(thresh2,depth_intrin,drone_w,drone_h,0.5)
+           
+          
             
             
             cv2.drawContours(colorized_depth, contours1, -1, (0, 255, 0), 1)
-            cv2.drawContours(colorized_depth, contours2, -1, (85, 170, 0), 1)
-            cv2.drawContours(colorized_depth, contours3, -1, (170, 85, 0), 1)
-            cv2.drawContours(colorized_depth, contours4, -1, (255, 0, 0), 1)
-            # cv2.drawContours(thresh, contours, -1, (0, 255, 0), 1)
+         
             
-            # colorized_depth = cv.rectangle(colorized_depth , (uvtl[0],uvtl[1]), (uvbr[0],uvbr[1]), (0,255,0),3)
+            if np.any(thresh1[rectangle[0,1]:rectangle[1,1],rectangle[0,0]:rectangle[1,0]] <10):
+                colorized_depth = cv.rectangle(colorized_depth , (rectangle[0,0],rectangle[0,1]), (rectangle[1,0],rectangle[1,1]), (0,0,255),1)
+            else:
+                colorized_depth = cv.rectangle(colorized_depth , (rectangle[0,0],rectangle[0,1]), (rectangle[1,0],rectangle[1,1]), (0,255,0),1)
+            
             colorized_depth = cv.resize(colorized_depth,(2*colorized_depth.shape[1], 2*colorized_depth.shape[0]), interpolation = cv.INTER_CUBIC)
             cv.imshow("colorized",colorized_depth)
+           
             
             
         
