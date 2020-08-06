@@ -1,3 +1,4 @@
+#calcul de trayectoire 
 import numpy as np                        # fundamental package for scientific computing
 import matplotlib.pyplot as plt           # 2D plotting library producing publication quality figures
 import pyrealsense2 as rs                 # Intel RealSense cross-platform open-source API
@@ -7,7 +8,7 @@ import time
 
 
 
-def filters_init():#initializates filters
+def os_filters_init():#initializates filters
     #creates a dictionary with the filters and configures its parameters
     filters = {}
     filters["decimation"]=rs.decimation_filter()
@@ -27,7 +28,7 @@ def filters_init():#initializates filters
     return filters
 
 
-def get_filtered(pipe,filters): #gets filtered and original frames from camera
+def os_get_filtered(pipe,filters): #gets filtered and original frames from camera
     #recieves the pipe to get the trqnsmision and a dictionary with the corresponding filters
     #and implements them
     frameset = pipe.wait_for_frames()
@@ -129,7 +130,7 @@ def main():
     # Store next frameset for later processing:
     while True:
         
-        frame_f,original,frameset = get_filtered(pipe,filters_init())
+        frame_f,original,frameset = os_get_filtered(pipe,os_filters_init())
 
         colorized_depth = np.asanyarray(colorizer.colorize(frame_f).get_data())
         colorized_depth = cv.GaussianBlur(colorized_depth,(9,9),0)

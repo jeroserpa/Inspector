@@ -3,11 +3,13 @@ import matplotlib.pyplot as plt           # 2D plotting library producing public
 import pyrealsense2 as rs                 # Intel RealSense cross-platform open-source API
 import cv2 as cv,cv2
 import time
+import openspace
+
 
 print("Environment Ready")
 
 def filters_init():#initializates filters
-    #creates a dictionary with the filters and configures its parameters
+    #creates a dictionary with the filters and configures its parameters  
     filters = {}
     filters["decimation"]=rs.decimation_filter()
 
@@ -95,17 +97,32 @@ def grad_avg_b(img_sx,img_sy): #total directional averages
     
     return(avg_x,avg_y)
 
-def grad_avg_LR(img_sx,img_sy):# calculates gradient average by sector and direction
+def grad_avg_LR(img_sx,img_sy):# calculates gradient average by sector and direction  #xL,xR; yL,yR
+    
+    global grad_bufferXL
+    global grad_bufferXR
     
     img_sx_n=np.sign(img_sx)
     img_sy_n=np.sign(img_sy)
     
-    avg = np.zeros([2,2]) #xL,xR; yL,yR
-    avg[0,0] = np.mean(img_sx_n[:,:img_sx_n.shape[1]/2])
-    avg[0,1] = np.mean(img_sx_n[:,img_sx_n.shape[1]/2 :])
-    
-    avg[1,0]= np.mean(img_sy_n[:,:img_sy_n.shape[1]/2])
+    avg = np.zeros([3,2])#Lx,Ly;Rx,Ry;Tx,Ty         #xL,xR; yL,yR; xT,yT
+    #Lx
+    avg[0,0] = np.mean(img_sx_n[:,:img_sx_n.shape[1]/2]) 
+    #Ly
+    avg[0,1]= np.mean(img_sy_n[:,:img_sy_n.shape[1]/2])
+    #Rx
+    avg[1,0] = np.mean(img_sx_n[:,img_sx_n.shape[1]/2 :])
+    #Ry
     avg[1,1] = np.mean(img_sy_n[:,img_sy_n.shape[1]/2 :])
+
+    
+    avg[0,0],grad_bufferXL= MovAvg(avg[0,0],grad_bufferXL) #filter 
+    avg[1,0],grad_bufferXR= MovAvg(avg[1,0],grad_bufferXR) #filter 
+    
+    #Tx
+    avg[2,0] = (avg[0,0]+avg[1,0])/2 
+    #Ty
+    avg[2,1] = (avg[0,1]+avg[1,1])/2 
     
     
     return(avg)
@@ -201,25 +218,26 @@ def dir_draw_axe(image_bgr,avg_x,avg_y,factor=500,axe = 'x',divergence = False):
 
 def dir_draw_LR(image_bgr,avg,factor=50):#draws left and right gradient in x direction ,searchs for divergence and calls dir_draw axe
     h,w,c=image_bgr.shape
-    global grad_bufferXL
-    global grad_bufferXR
+    # global grad_bufferXL
+    # global grad_bufferXR
     #Obtaining the average gradient by zone
     av_XL = avg[0,0]*factor  
     av_XR = avg[0,1]*factor
     av_YL = avg[1,0]*factor  
     av_YR = avg[1,1]*factor
+    
+    av_X = avg[2,0]*factor
+    av_Y = avg[2,1]*factor
 
+    # ma_XL,grad_bufferXL= MovAvg(av_XL,grad_bufferXL)
+    # ma_XR,grad_bufferXR= MovAvg(av_XR,grad_bufferXR)
 
-    ma_XL,grad_bufferXL= MovAvg(av_XL,grad_bufferXL)
-    ma_XR,grad_bufferXR= MovAvg(av_XR,grad_bufferXR)
-    #ma_XR = MovAvg(av_XR,grad_bufferXR)
-
-    av_XL = ma_XL
-    av_XR = ma_XR
+    # av_XL = ma_XL
+    # av_XR = ma_XR
 
     #total gradient
-    av_X = (av_XL+av_XR)/2#np.mean(avg[0,:])
-    av_Y = np.mean(avg[1,:])
+    # av_X = (av_XL+av_XR)/2#np.mean(avg[0,:])
+    # av_Y = np.mean(avg[1,:])
     
     #computing centers and ends of arroxs
     startxL = ((int)(w/4),(int)(h/2))
@@ -227,11 +245,11 @@ def dir_draw_LR(image_bgr,avg,factor=50):#draws left and right gradient in x dir
     endxL = ( (int)(w/4) + (int)(av_XL)  , (int)(h/2) )
     endxR = ( (int)(w*3/4) + (int)(av_XR)  , (int)(h/2) )
     
-    if np.abs(av_XL) > 0.02*w: #draw arrow if module bigger than tolerance LEFT
+    if True:#np.abs(av_XL) > 0.02*w: #draw arrow if module bigger than tolerance LEFT
       image_bgr_dir = cv2.arrowedLine(image_bgr,startxL,endxL,(255, 0, 0),thickness=2,tipLength = 0.2 )
     else: #else draw circle, meaning that we are in the center of the zone LEFT
       image_bgr_dir = cv2.circle(image_bgr, startxL, 30,  (255,0,0),thickness=2)
-    if np.abs(av_XR) > 0.02*w: #draw arrow if module bigger than tolerance RIGHT
+    if True:#np.abs(av_XR) > 0.02*w: #draw arrow if module bigger than tolerance RIGHT
       image_bgr_dir = cv2.arrowedLine(image_bgr,startxR,endxR,(255, 0, 0),thickness=2,tipLength = 0.2 )
     else: #else draw circle, meaning that we are in the center of the zone RIGTH
       image_bgr_dir = cv2.circle(image_bgr, startxR, 30,  (255,0,0),thickness=2)
@@ -264,17 +282,17 @@ def MovAvg(value,grad_buffer): #calculates moving average of given global array
 
 
 def gradient(image):
-    density = 16 #1; 2; 3; 4; 5; 6; 8; 10; 12; 15; 20; 24; 30; 40; 60 COMMON FACTORSS
+    #density = 16 #1; 2; 3; 4; 5; 6; 8; 10; 12; 15; 20; 24; 30; 40; 60 COMMON FACTORSS
     h,w = image.shape
-    (img_sx,img_sy) =  N_sobel(image)
+    img_sx,img_sy =  N_sobel(image)
     
-    image_bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR) 
+   
    
     avg = grad_avg_LR(img_sx,img_sy)
     
     #avgs = grad_avg(img_sx,img_sy,density)
 
-    avg_x,avg_y = grad_avg_b(img_sx,img_sy)
+    #avg_x,avg_y = grad_avg_b(img_sx,img_sy)
     
     #image_bgr = draw_grid(image_bgr,density)
 
@@ -283,8 +301,8 @@ def gradient(image):
     #image_bgr_dir = dir_draw(image_bgr,avgs)
 
     #image_bgr_dir = dir_draw_axe(image_bgr,avg_x,avg_y) #compute with direct avg over img_sX
+    image_bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR) 
     image_bgr_dir = dir_draw_LR(image_bgr,avg) #compute with direct avg over img_sX
-
     return image_bgr_dir
 
 
@@ -322,22 +340,10 @@ def main():
         frame_f,original = get_filtered(pipe,filters_init())
 
         colorized_depth = np.asanyarray(colorizer.colorize(frame_f).get_data())
-        colorized_depth_o = np.asanyarray(colorizer.colorize(original).get_data())
-        # cv.imshow("normal",colorized_depth)
 
-        
-        # for y in range(480/2):
-        #     for x in range(640/2):
-        #         dist_d[(int(y/2)),(int(x/2))] = frame.as_depth_frame().get_distance((int(x)), (int(y)))
-
-       
-
-
-        
         colorized_depth = cv.cvtColor(colorized_depth,cv.COLOR_BGR2GRAY)
-        colorized_depth_o = cv.cvtColor(colorized_depth_o,cv.COLOR_BGR2GRAY)
-        
-        #img_bgr_o=gradient(colorized_depth_o)
+
+ 
         colorized_depth = cv.GaussianBlur(colorized_depth,(9,9),0)
         img_bgr_f = gradient(colorized_depth)
         img_bgr_f = cv.resize(img_bgr_f,(3*img_bgr_f.shape[1], 3*img_bgr_f.shape[0]), interpolation = cv.INTER_CUBIC)
