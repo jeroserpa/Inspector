@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt           # 2D plotting library producing public
 import pyrealsense2 as rs                 # Intel RealSense cross-platform open-source API
 import cv2 as cv,cv2
 import time
-import openspace
+import openspace as op
 import depthgradient as gd
 
 print("Environment Ready")
@@ -51,43 +51,36 @@ def main():
 
     # Start streaming
     cfg.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-    #cfg.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
- 
-    # Skip 5 first frames to give the Auto-Exposure time to adjust
-    # for x in range(5):
-    #   pipe.wait_for_frames()
-
+    
     colorizer = rs.colorizer(3)#config colorizer type 3=black to white
 
     # Start streaming 
     pipe.start(cfg)
+   
+    start_time = time.time() #to check preformance
     
-    #initialize global buffers for moving average 
-    global grad_bufferXL
-    global grad_bufferXR
-    buffer_size=10
-    grad_bufferXL =  np.arange(0,buffer_size,1)
-    grad_bufferXR =  np.arange(0,buffer_size,1)
     
-    start_time = time.time()
-    # Store next frameset for later processing:
     while True:
         
         frame_f,original = get_filtered(pipe,filters_init())
 
         colorized_depth = np.asanyarray(colorizer.colorize(frame_f).get_data())
 
-        colorized_depth = cv.cvtColor(colorized_depth,cv.COLOR_BGR2GRAY)
-
+        colorized_depth = cv.cvtColor(colorized_depth,cv.COLOR_BGR2GRAY)#transform to grayscale
  
-        colorized_depth = cv.GaussianBlur(colorized_depth,(9,9),0)
-        img_bgr_f = gd.gradient(colorized_depth)
-        img_bgr_f = cv.resize(img_bgr_f,(3*img_bgr_f.shape[1], 3*img_bgr_f.shape[0]), interpolation = cv.INTER_CUBIC)
+        colorized_depth = cv.GaussianBlur(colorized_depth,(9,9),0)#gaussian filter 
+        
+        img_bgr_f = gd.gradient(colorized_depth)#gradient calculation 
+        
+        img_bgr_f = cv.resize(img_bgr_f,(3*img_bgr_f.shape[1], 3*img_bgr_f.shape[0]), interpolation = cv.INTER_CUBIC)#resize for better view
+        
+        
         cv.imshow('grad',img_bgr_f)
+        
         print("--- %s seconds - Hz-" % (time.time() - start_time),  1/(time.time() - start_time))
-        #cv.imshow('grad_o',img_bgr_o)
+
         start_time = time.time()
-        #print(np.max(colorized_depth))
+        
         cv.waitKey(1)
         
         
