@@ -5,6 +5,7 @@
 # Control a MAV via mavros
 #
 ##
+from getch import getch, pause
 
 import rospy
 import tf
@@ -25,6 +26,7 @@ class MavController:
 
         rospy.init_node("mav_control_node")
         rospy.Subscriber("/mavros/local_position/pose", PoseStamped, self.pose_callback)
+        rospy.Subscriber("/mavros/vision_pose/pose", PoseStamped, self.orientation_callback)
         rospy.Subscriber("/mavros/rc/in", RCIn, self.rc_callback)
 
         self.cmd_pos_pub = rospy.Publisher("/mavros/setpoint_position/local", PoseStamped, queue_size=1)
@@ -41,6 +43,7 @@ class MavController:
         self.rc = RCIn()
         self.pose = Pose()
         self.timestamp = rospy.Time()
+        self.euler = []
 
     def rc_callback(self, data):
         """
@@ -54,6 +57,15 @@ class MavController:
         """
         self.timestamp = data.header.stamp
         self.pose = data.pose
+     
+        #self.euler = tf.transformations.euler_from_quaternion([data.pose.orientation.x,data.pose.orientation.y,data.pose.orientation.z,data.pose.orientation.w])
+    def orientation_callback(self, data):
+        """
+        Handle local position information
+        """     
+        self.euler = tf.transformations.euler_from_quaternion([data.pose.orientation.x,data.pose.orientation.y,data.pose.orientation.z,data.pose.orientation.w])
+        
+        
 
     def goto(self, pose):
         """
@@ -73,7 +85,7 @@ class MavController:
         pose.position.y = y
         pose.position.z = z
 
-        quat = tf.transformations.quaternion_from_euler(ro, pi, ya + pi_2)
+        quat = tf.transformations.quaternion_from_euler(ro, pi, ya + pi_2)#it had ya + pi_2
 
         pose.orientation.x = quat[0]
         pose.orientation.y = quat[1]
@@ -144,77 +156,62 @@ def simple_demo():
     c = MavController()
     rospy.sleep(1)
 
-    alt = float(raw_input('Enter takeoff altitude.\n'))
-    
-    tol_pos = 0.2
-    
-    c.takeoff(alt)
-    while c.pose.position.z < alt - tol_pos or c.pose.position.z > alt + tol_pos:
-    	print(c.pose.position.z)
-	rospy.sleep(1)
-    print("position reached:",c.pose.position.x,c.pose.position.y,c.pose.position.z)
     while True:
-        d_x,d_y,d_z = raw_input('Enter x,y,z position DELTA.\n').split(",")
-        print("move ")
-        d_x = float(d_x)
-        d_y = float(d_y)
-        d_z = float(d_z)
-
-        x_n = c.pose.position.x + d_x
-        y_n = c.pose.position.y + d_y
-        z_n = c.pose.position.z + d_z
+        print(c.euler)
 
 
-        c.goto_xyz_rpy(x_n,y_n,z_n,0,0,0)
-        error_x = abs(c.pose.position.x - x_n)
-        error_y = abs(c.pose.position.y - y_n)
-        error_z= abs(c.pose.position.z - z_n)
-
-        while error_x > tol_pos or error_y > tol_pos or error_z > tol_pos : 
-            error_x = abs(c.pose.position.x - x_n)
-            error_y = abs(c.pose.position.y - y_n)
-            error_z= abs(c.pose.position.z - z_n)
-            rospy.sleep(1)
-            print(error_x,error_y,error_z)
-        print("position reached:",c.pose.position.x,c.pose.position.y,c.pose.position.z)
+    tol_pos = 0.1
     
-        rospy.sleep(0.1)
-        land_bool = raw_input('Land?  Y/n\n')
-        if land_bool == 'Y' or land_bool == 'y' :
+    alt = float(raw_input('Enter altitude\n'))
+    print("actual position",c.pose.position)
+    print("actual orientation",c.euler)
+    
+    #take off and wait until it reaches the desired position
+    c.takeoff(alt)
+    error_alt = abs(c.pose.position.z -alt)
+    while error_alt > tol_pos :
+        error_alt = abs(c.pose.position.z -alt)
+    	print(c.pose.position.z)
+
+
+
+	rospy.sleep(1)
+    while True :
+        ch = getch()
+        
+        if ch == 'z':
+            c.goto_xyz_rpy(c.pose.position.x + 0.25,c.pose.position.y,c.pose.position.z,0,0,c.euler[2])
+            print('command:',c.pose.position.x + 0.25,c.pose.position.y,c.pose.position.z,0,0,c.euler[2])
+        if ch == 's':
+            c.goto_xyz_rpy(c.pose.position.x - 0.25,c.pose.position.y,c.pose.position.z,0,0,c.euler[2])
+            print('command:',c.pose.position.x - 0.25,c.pose.position.y,c.pose.position.z,0,0,c.euler[2])
+        
+        if ch == 'd':
+            c.goto_xyz_rpy(c.pose.position.x, c.pose.position.y  + 0.25, c.pose.position.z,0,0,c.euler[2])
+            print('command:',c.pose.position.x, c.pose.position.y  + 0.25, c.pose.position.z,0,0,c.euler[2])
+        if ch == 'q':
+            c.goto_xyz_rpy(c.pose.position.x, c.pose.position.y - 0.25, c.pose.position.z,0,0,c.euler[2])
+            print('command:',c.pose.position.x, c.pose.position.y - 0.25, c.pose.position.z,0,0,c.euler[2])
+        if ch == 'u':
+            c.goto_xyz_rpy(c.pose.position.x, c.pose.position.y, c.pose.position.z  + 0.25, 0, 0, c.euler[2])
+            print('command:',c.pose.position.x, c.pose.position.y, c.pose.position.z  + 0.25, 0, 0, c.euler[2])
+        if ch == 'h':
+            c.goto_xyz_rpy(c.pose.position.x, c.pose.position.y, c.pose.position.z - 0.25, 0, 0, c.euler[2])
+            print('command:',c.pose.position.x, c.pose.position.y, c.pose.position.z - 0.25, 0, 0, c.euler[2])
+        if ch == 'a':
+            c.goto_xyz_rpy(c.pose.position.x, c.pose.position.y, c.pose.position.z, 0, 0, c.euler[2] + pi_2/2)
+            print('command:',c.pose.position.x, c.pose.position.y, c.pose.position.z, 0, 0, c.euler[2] + pi_2/2)        
+        if ch == 'e':
+            c.goto_xyz_rpy(c.pose.position.x, c.pose.position.y, c.pose.position.z, 0, 0, c.euler[2] - pi_2/2)
+            print('command:',c.pose.position.x, c.pose.position.y, c.pose.position.z, 0, 0, c.euler[2] - pi_2/2)
+        
+        if ch =='l':
             break
-
-
-    #print("Waypoint 1: position control")
-    #c.goto_xyz_rpy(0.0,0.0,1.2,0,0,-1*pi_2)
-    #rospy.sleep(2)
-    #c.goto_xyz_rpy(0.4,0.0,1.2,0,0,-1*pi_2)
-    #rospy.sleep(3)
-    #print("Waypoint 2: position control")
-    #c.goto_xyz_rpy(0.4,0.0,1.2,0,0,0)
-    #rospy.sleep(2)
-    #c.goto_xyz_rpy(0.4,0.4,1.2,0,0,0)
-    #rospy.sleep(3)
-    #print("Waypoint 3: position control")
-    #c.goto_xyz_rpy(0.4,0.4,1.2,0,0,pi_2)
-    #rospy.sleep(2)
-    #c.goto_xyz_rpy(0.0,0.4,1.2,0,0,pi_2)
-    #rospy.sleep(3)
-    #print("Waypoint 4: position control")
-    #c.goto_xyz_rpy(0.0,0.4,1.2,0,0,2*pi_2)
-    #rospy.sleep(2)
-    #c.goto_xyz_rpy(0.0,0.0,1.2,0,0,2*pi_2)
-    #rospy.sleep(3)
-
-    #print("Velocity Setpoint 1")
-    #c.set_vel(0,0.1,0)
-    #rospy.sleep(5)
-    #print("Velocity Setpoint 2")
-    #c.set_vel(0,-0.1,0)
-    #rospy.sleep(5)
-    #print("Velocity Setpoint 3")
-    #c.set_vel(0,0,0)
-    #rospy.sleep(5)
-
+        
+        print("actual position",c.pose.position)
+        print("actual orientation",c.euler)
+     
+       
     print("Landing")
     c.land()
 

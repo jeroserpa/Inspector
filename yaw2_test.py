@@ -5,7 +5,7 @@
 # Control a MAV via mavros
 #
 ##
-
+import numpy as np
 import rospy
 import tf
 from geometry_msgs.msg import Pose, PoseStamped, Twist, Quaternion
@@ -16,6 +16,7 @@ from mavros_msgs.srv import SetMode
 from mavros_msgs.srv import CommandTOL
 
 pi_2 = 3.141592654 / 2.0
+pi = 2*pi_2
 
 class MavController:
     """
@@ -24,6 +25,7 @@ class MavController:
     def __init__(self):
 
         rospy.init_node("mav_control_node")
+        #rospy.Subscriber("/mavros/vision_pose/pose", PoseStamped, self.pose_callback)
         rospy.Subscriber("/mavros/local_position/pose", PoseStamped, self.pose_callback)
         rospy.Subscriber("/mavros/rc/in", RCIn, self.rc_callback)
 
@@ -41,7 +43,7 @@ class MavController:
         self.rc = RCIn()
         self.pose = Pose()
         self.timestamp = rospy.Time()
-
+        self.euler = np.zeros(3)
     def rc_callback(self, data):
         """
         Keep track of the current manual RC values
@@ -54,6 +56,10 @@ class MavController:
         """
         self.timestamp = data.header.stamp
         self.pose = data.pose
+        self.euler[0],self.euler[1],self.euler[2] = tf.transformations.euler_from_quaternion([self.pose.orientation.x,self.pose.orientation.y,self.pose.orientation.z,self.pose.orientation.w])
+        
+        if self.euler[2] < 0:
+            self.euler[2]+= 2*pi
 
     def goto(self, pose):
         """
@@ -73,7 +79,7 @@ class MavController:
         pose.position.y = y
         pose.position.z = z
 
-        quat = tf.transformations.quaternion_from_euler(ro, pi, ya + pi_2)
+        quat = tf.transformations.quaternion_from_euler(ro, pi, ya )# ya + pi/2
 
         pose.orientation.x = quat[0]
         pose.orientation.y = quat[1]
@@ -145,38 +151,46 @@ def simple_demo():
     rospy.sleep(1)
 
     alt = float(raw_input('Enter takeoff altitude.\n'))
-    
     tol_pos = 0.2
+    tol_yaw = pi_2 / 5.0  # 18 deg of error tolerance
     
     c.takeoff(alt)
     while c.pose.position.z < alt - tol_pos or c.pose.position.z > alt + tol_pos:
     	print(c.pose.position.z)
 	rospy.sleep(1)
-    print("position reached:",c.pose.position.x,c.pose.position.y,c.pose.position.z)
+    print("position reached:",c.pose.position.x,c.pose.position.y,c.pose.position.z,c.euler[2]*pi/180)
+
+
+
     while True:
-        d_x,d_y,d_z = raw_input('Enter x,y,z position DELTA.\n').split(",")
-        print("move ")
-        d_x = float(d_x)
-        d_y = float(d_y)
-        d_z = float(d_z)
+        print(c.euler[2])
+        d_yaw = raw_input('Enter YAW position.\n')
+        print("move")
+        d_yaw = float(d_yaw)*pi/180
+        d_x = 0  
+        d_y = 0  
+        d_z = 0  
 
         x_n = c.pose.position.x + d_x
         y_n = c.pose.position.y + d_y
         z_n = c.pose.position.z + d_z
-
-
-        c.goto_xyz_rpy(x_n,y_n,z_n,0,0,0)
+        #yaw_n = c.euler[2] + d_yaw
+        yaw_n =  d_yaw
+        print("new position:",x_n,y_n,z_n,yaw_n*180/pi)
+        c.goto_xyz_rpy(x_n,y_n,z_n,0,0,yaw_n)
         error_x = abs(c.pose.position.x - x_n)
         error_y = abs(c.pose.position.y - y_n)
         error_z= abs(c.pose.position.z - z_n)
+        error_yaw= abs(c.euler[2] - yaw_n)
 
-        while error_x > tol_pos or error_y > tol_pos or error_z > tol_pos : 
+        while error_x > tol_pos or error_y > tol_pos or error_z > tol_pos or error_yaw > tol_yaw: 
             error_x = abs(c.pose.position.x - x_n)
             error_y = abs(c.pose.position.y - y_n)
             error_z= abs(c.pose.position.z - z_n)
-            rospy.sleep(1)
-            print(error_x,error_y,error_z)
-        print("position reached:",c.pose.position.x,c.pose.position.y,c.pose.position.z)
+            error_yaw= abs(c.euler[2] - yaw_n)
+            rospy.sleep(0.5)
+            print(c.euler[2]*180/pi,yaw_n*180/pi,error_yaw*180/pi)
+        print("position reached:",c.pose.position.x,c.pose.position.y,c.pose.position.z,c.euler[2]*180/pi)
     
         rospy.sleep(0.1)
         land_bool = raw_input('Land?  Y/n\n')
