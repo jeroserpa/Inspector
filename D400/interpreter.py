@@ -4,9 +4,12 @@ import pyrealsense2 as rs                 # Intel RealSense cross-platform open-
 import cv2 as cv,cv2
 import time
 import openspace as op
-import depthgradient as gd
+import depthgradient_ROS as gd
+import rospy
+from std_msgs.msg import String
 
 print("Environment Ready")
+
 
 def filters_init():#initializates filters
     #creates a dictionary with the filters and configures its parameters  
@@ -43,6 +46,16 @@ def get_filtered(pipe,filters): #gets filtered and original frames from camera
     
     return frame,frame_original
 
+def Publisher():
+    pub = rospy.Publisher('chatter', String, queue_size=10)
+    rospy.init_node('Interpreter', anonymous=True)
+    rate = rospy.Rate(5) # 5hz
+    if not rospy.is_shutdown():
+          hello_str = "hello world %s" % rospy.get_time()
+          rospy.loginfo(hello_str)
+          pub.publish(hello_str)
+          
+
 def main():
 
     # Setup:
@@ -70,14 +83,21 @@ def main():
  
         colorized_depth = cv.GaussianBlur(colorized_depth,(9,9),0)#gaussian filter 
         
-        img_bgr_f = gd.gradient(colorized_depth)#gradient calculation 
+        img_bgr_f,avg = gd.gradient(colorized_depth)#gradient calculation 
         
         img_bgr_f = cv.resize(img_bgr_f,(3*img_bgr_f.shape[1], 3*img_bgr_f.shape[0]), interpolation = cv.INTER_CUBIC)#resize for better view
         
         
+        try:
+            Publisher()
+        except rospy.ROSInterruptException:
+            pass
+
+
         cv.imshow('grad',img_bgr_f)
         
-        print("--- %s seconds - Hz-" % (time.time() - start_time),  1/(time.time() - start_time))
+        #print("--- %s seconds - Hz-" % (time.time() - start_time),  1/(time.time() - start_time))
+        print('xL:',avg['Lx'],'xR:',avg['Rx'],'xT:',avg['Tx'])
 
         start_time = time.time()
         

@@ -32,27 +32,33 @@ def grad_avg_LR(img_sx,img_sy):# calculates gradient average by sector and direc
     
     img_sx_n=np.sign(img_sx)
     img_sy_n=np.sign(img_sy)
-    
-    avg = np.zeros([3,2])#Lx,Ly;Rx,Ry;Tx,Ty         #xL,xR; yL,yR; xT,yT
+    avg =  {'Lx' : 0 ,'Ly' : 0,
+            'Rx' : 0 ,'Ry' : 0,
+            'Tx' : 0 ,'Ty' : 0}
+
     #Lx
-    avg[0,0] = np.mean(img_sx_n[:,:img_sx_n.shape[1]/2]) 
+    avg['Lx'] = np.mean(img_sx_n[:,:img_sx_n.shape[1]/2]) 
     #Ly
-    avg[0,1]= np.mean(img_sy_n[:,:img_sy_n.shape[1]/2])
+    avg['Ly']= np.mean(img_sy_n[:,:img_sy_n.shape[1]/2])
     #Rx
-    avg[1,0] = np.mean(img_sx_n[:,img_sx_n.shape[1]/2 :])
+    avg['Rx'] = np.mean(img_sx_n[:,img_sx_n.shape[1]/2 :])
     #Ry
-    avg[1,1] = np.mean(img_sy_n[:,img_sy_n.shape[1]/2 :])
+    avg['Ry'] = np.mean(img_sy_n[:,img_sy_n.shape[1]/2 :])
 
     
-    avg[0,0],grad_bufferXL= MovAvg(avg[0,0],grad_bufferXL) #filter 
-    avg[1,0],grad_bufferXR= MovAvg(avg[1,0],grad_bufferXR) #filter 
+    
+  
+    
+    avg['Lx'],grad_bufferXL= MovAvg(avg['Lx'],grad_bufferXL) #filter 
+    avg['Rx'],grad_bufferXR= MovAvg(avg['Rx'],grad_bufferXR) #filter 
     
     #Tx
-    avg[2,0] = (avg[0,0]+avg[1,0])/2 
+    avg['Tx'] = (avg['Lx']+avg['Rx'])/2 
     #Ty
-    avg[2,1] = (avg[0,1]+avg[1,1])/2 
-    
-    
+    avg['Ty'] = (avg['Ly']+avg['Ry'])/2 
+ 
+
+
     return(avg)
 
 def draw_grid(image_bgr,density=10):#draws grid
@@ -101,13 +107,13 @@ def dir_draw_LR(image_bgr,avg,factor=50):#draws left and right gradient in x dir
     # global grad_bufferXL
     # global grad_bufferXR
     #Obtaining the average gradient by zone
-    av_XL = avg[0,0]*factor  
-    av_XR = avg[0,1]*factor
-    av_YL = avg[1,0]*factor  
-    av_YR = avg[1,1]*factor
+    av_Lx = avg['Lx']*factor  
+    av_Rx = avg['Rx']*factor
+    av_Ly = avg['Ly']*factor  
+    av_Ry = avg['Ry']*factor
     
-    av_X = avg[2,0]*factor
-    av_Y = avg[2,1]*factor
+    av_X = avg['Tx']*factor
+    av_Y = avg['Ty']*factor
 
     # ma_XL,grad_bufferXL= MovAvg(av_XL,grad_bufferXL)
     # ma_XR,grad_bufferXR= MovAvg(av_XR,grad_bufferXR)
@@ -122,8 +128,8 @@ def dir_draw_LR(image_bgr,avg,factor=50):#draws left and right gradient in x dir
     #computing centers and ends of arroxs
     startxL = ((int)(w/4),(int)(h/2))
     startxR = ((int)(w*3/4),(int)(h/2))
-    endxL = ( (int)(w/4) + (int)(av_XL)  , (int)(h/2) )
-    endxR = ( (int)(w*3/4) + (int)(av_XR)  , (int)(h/2) )
+    endxL = ( (int)(w/4) + (int)(av_Lx)  , (int)(h/2) )
+    endxR = ( (int)(w*3/4) + (int)(av_Rx)  , (int)(h/2) )
     
     if True:#np.abs(av_XL) > 0.02*w: #draw arrow if module bigger than tolerance LEFT
       image_bgr_dir = cv2.arrowedLine(image_bgr,startxL,endxL,(255, 0, 0),thickness=2,tipLength = 0.2 )
@@ -136,9 +142,9 @@ def dir_draw_LR(image_bgr,avg,factor=50):#draws left and right gradient in x dir
    
 
     #check for divergence between left and right zone
-    if np.sign(av_XL) > 0 and np.sign(av_XR) < 0 : 
+    if np.sign(av_Lx) > 0 and np.sign(av_Rx) < 0 : 
       divergence = False
-    elif np.sign(av_XL) < 0 and np.sign(av_XR) > 0 :
+    elif np.sign(av_Lx) < 0 and np.sign(av_Rx) > 0 :
       divergence = True
     else:
       divergence = False
@@ -183,7 +189,7 @@ def gradient(image):
     #image_bgr_dir = dir_draw_axe(image_bgr,avg_x,avg_y) #compute with direct avg over img_sX
     image_bgr = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR) 
     image_bgr_dir = dir_draw_LR(image_bgr,avg) #compute with direct avg over img_sX
-    return image_bgr_dir
+    return image_bgr_dir,avg
 
 
 
@@ -225,7 +231,7 @@ def main():
 
  
         colorized_depth = cv.GaussianBlur(colorized_depth,(9,9),0)
-        img_bgr_f = gradient(colorized_depth)
+        img_bgr_f,avg = gradient(colorized_depth)
         
         img_bgr_f = cv.resize(img_bgr_f,(3*img_bgr_f.shape[1], 3*img_bgr_f.shape[0]), interpolation = cv.INTER_CUBIC)
         cv.imshow('grad',img_bgr_f)
