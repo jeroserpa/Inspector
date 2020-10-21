@@ -14,15 +14,17 @@ print("Environment Ready")
 
 bridge = CvBridge()
 
+
 def Publisher(avg):
     
     pub = rospy.Publisher('avg', String, queue_size=10)
     #rospy.init_node('Interpreter', anonymous=True)
     rate = rospy.Rate(5) # 5hz
     if not rospy.is_shutdown():
-          message = "Lx:"+str(avg["Lx"])
+          message = str(avg["Tx"])
           rospy.loginfo(message)
           pub.publish(message)
+          
           
 def image_callback(msg):
   
@@ -47,10 +49,11 @@ def main():
     
     start_time = time.time() #to check preformance 
     rospy.init_node("Gradient")
-    rospy.Subscriber("/d400/depth/image_rect_raw", Image, image_callback)
+    rate = rospy.Rate(5)
+    rospy.Subscriber("/d435/depth/image_rect_raw", Image, image_callback)
 
 
-   
+    
     rospy.spin()
      
         

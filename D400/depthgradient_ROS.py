@@ -87,7 +87,7 @@ def draw_grid(image_bgr,density=10):#draws grid
     cv2.line(image_bgr, (x, 0), (x, h), (255, 0, 0), 1, 1)
   return(image_bgr)
 
-def dir_draw_axe(image_bgr,avg_x,avg_y,factor=500,axe = 'x',divergence = False):#draws total gradient and allows to choose axe 
+def dir_draw_axe(image_bgr,avg_x,avg_y,factor=50,axe = 'x',divergence = False):#draws total gradient and allows to choose axe 
     h,w,c=image_bgr.shape
     av_X = avg_x*factor  
     av_Y = avg_y*factor/2
