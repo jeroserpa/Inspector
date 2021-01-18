@@ -1,0 +1,16 @@
+robot_localization: You did not request a specific build type: selecting 'RelWithDebInfo'.
+[31m[1mCMake Error[0m at /opt/ros/melodic/share/catkin/cmake/catkinConfig.cmake:83 (find_package):
+  Could not find a package configuration file provided by "tf2_geometry_msgs"
+  with any of the following names:
+
+    tf2_geometry_msgsConfig.cmake
+    tf2_geometry_msgs-config.cmake
+
+  Add the installation prefix of "tf2_geometry_msgs" to CMAKE_PREFIX_PATH or
+  set "tf2_geometry_msgs_DIR" to a directory containing one of the above
+  files.  If "tf2_geometry_msgs" provides a separate development package or
+  SDK, be sure it has been installed.
+[36mCall Stack (most recent call first):[0m
+  CMakeLists.txt:9 (find_package)
+
+

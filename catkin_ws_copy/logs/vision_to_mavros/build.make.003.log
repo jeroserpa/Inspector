@@ -1,0 +1,5 @@
+[35m[1mScanning dependencies of target vision_to_mavros_node[0m
+[ 25%] [32mBuilding CXX object CMakeFiles/vision_to_mavros_node.dir/src/vision_to_mavros.cpp.o[0m
+[ 75%] Built target t265_fisheye_undistort_node
+[100%] [32m[1mLinking CXX executable /home/jetson/catkin_ws/devel/.private/vision_to_mavros/lib/vision_to_mavros/vision_to_mavros_node[0m
+[100%] Built target vision_to_mavros_node

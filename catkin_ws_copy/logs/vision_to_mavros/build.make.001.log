@@ -1,0 +1,6 @@
+[35m[1mScanning dependencies of target t265_fisheye_undistort_node[0m
+[ 50%] Built target vision_to_mavros_node
+[ 75%] [32mBuilding CXX object CMakeFiles/t265_fisheye_undistort_node.dir/src/t265_fisheye_undistort.cpp.o[0m
+[100%] [32m[1mLinking CXX executable /home/jetson/catkin_ws/devel/.private/vision_to_mavros/lib/vision_to_mavros/t265_fisheye_undistort_node[0m
+/usr/bin/ld: warning: libopencv_imgproc.so.4.1, needed by /usr/lib/aarch64-linux-gnu/libopencv_calib3d.so.4.1.1, may conflict with libopencv_imgproc.so.3.2
+[100%] Built target t265_fisheye_undistort_node

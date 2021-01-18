@@ -1,0 +1,17 @@
+[31m[1mCMake Error[0m at /home/jetson/catkin_ws/src/geometry2/tf2_bullet/CMakeLists.txt:11 (find_package):
+  By not providing "Findbullet.cmake" in CMAKE_MODULE_PATH this project has
+  asked CMake to find a package configuration file provided by "bullet", but
+  CMake did not find one.
+
+  Could not find a package configuration file provided by "bullet" with any
+  of the following names:
+
+    bulletConfig.cmake
+    bullet-config.cmake
+
+  Add the installation prefix of "bullet" to CMAKE_PREFIX_PATH or set
+  "bullet_DIR" to a directory containing one of the above files.  If "bullet"
+  provides a separate development package or SDK, be sure it has been
+  installed.
+
+

@@ -1,0 +1,5 @@
+Symlinking /home/jetson/catkin_ws/devel/lib/pkgconfig/vision_to_mavros.pc
+Symlinking /home/jetson/catkin_ws/devel/lib/vision_to_mavros/t265_fisheye_undistort_node
+Symlinking /home/jetson/catkin_ws/devel/lib/vision_to_mavros/vision_to_mavros_node
+Symlinking /home/jetson/catkin_ws/devel/share/vision_to_mavros/cmake/vision_to_mavrosConfig.cmake
+Symlinking /home/jetson/catkin_ws/devel/share/vision_to_mavros/cmake/vision_to_mavrosConfig-version.cmake

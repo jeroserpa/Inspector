@@ -1,0 +1,7 @@
+[01m[K/home/jetson/catkin_ws/src/vision_to_mavros/src/t265_fisheye_undistort.cpp:[m[K In function ‘[01m[Kvoid init_rectification_map(std::__cxx11::string)[m[K’:
+[01m[K/home/jetson/catkin_ws/src/vision_to_mavros/src/t265_fisheye_undistort.cpp:61:17:[m[K [01;31m[Kerror: [m[K‘[01m[KCV_CALIB_ZERO_DISPARITY[m[K’ was not declared in this scope
+                 [01;31m[KCV_CALIB_ZERO_DISPARITY[m[K,
+                 [01;31m[K^~~~~~~~~~~~~~~~~~~~~~~[m[K
+make[2]: *** [CMakeFiles/t265_fisheye_undistort_node.dir/src/t265_fisheye_undistort.cpp.o] Error 1
+make[1]: *** [CMakeFiles/t265_fisheye_undistort_node.dir/all] Error 2
+make: *** [all] Error 2
